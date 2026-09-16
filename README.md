@@ -24,7 +24,7 @@ The GAEP (Global Aerospace Engineering Platform) Prototype is a self-service orc
 
 ### Running the Platform
 1. Start the Orchestrator (Backend):
-   `cd orchestrator`
+   `cd ./src/orchestrator`
    `python orchestrator.py`
 2. Start the Dashboard (Frontend):
    `npm run dev`
