@@ -1,0 +1,9 @@
+
+services:
+  workspace:
+    image: dorowu/ubuntu-desktop-lxde-vnc:latest
+    container_name: poc-workbench-1789548998046
+    ports:
+      - "80"
+    environment:
+      - RESOLUTION=1920x1080
