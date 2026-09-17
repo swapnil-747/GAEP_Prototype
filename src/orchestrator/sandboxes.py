@@ -64,7 +64,9 @@ def generate_azure_credentials(user_id: str, workspace_name: str) -> dict[str, A
 
 
 def generate_gcp_credentials(user_id: str, workspace_name: str) -> dict[str, Any]:
-    project_id = f"boeing-gaep-sandbox-{uuid.uuid4().hex[:6]}"
+    import os
+    env_project = os.environ.get("GCP_PROJECT_ID")
+    project_id = env_project if env_project else f"boeing-gaep-sandbox-{uuid.uuid4().hex[:6]}"
     sa_email = f"sa-engineer@{project_id}.iam.gserviceaccount.com"
     
     sa_key_json = {
@@ -77,6 +79,8 @@ def generate_gcp_credentials(user_id: str, workspace_name: str) -> dict[str, Any
         "token_uri": "https://oauth2.googleapis.com/token",
     }
     
+    console_url = f"https://console.cloud.google.com/welcome?project={project_id}" if env_project else "https://console.cloud.google.com/"
+
     return {
         "provider": "Google Cloud Platform (GCP)",
         "project_id": project_id,
@@ -91,7 +95,7 @@ def generate_gcp_credentials(user_id: str, workspace_name: str) -> dict[str, Any
             "Cloud Storage (GCS Multi-Region)",
             "Cloud Run (Serverless Microservices)",
         ],
-        "console_url": f"https://console.cloud.google.com/welcome?project={project_id}",
+        "console_url": console_url,
         "service_account_json": sa_key_json,
         "cli_config": f"gcloud auth activate-service-account {sa_email} --key-file=sa-key.json\ngcloud config set project {project_id}",
     }

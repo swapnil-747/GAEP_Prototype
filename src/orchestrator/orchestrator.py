@@ -568,79 +568,15 @@ server.listen(9323, '0.0.0.0', () => console.log('Playwright Studio running on 9
     command: ["node", "/app/server.js"]
 """
         elif template == "jira":
-            server_file = workspace_path / "jira_board.js"
-            server_file.write_text(r"""const http = require('http');
-
-const server = http.createServer((req, res) => {
-  const html = `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>📋 Jira Software - Boeing 787 Avionics</title>
-  <style>
-    * { box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, sans-serif; background: #071320; color: #f0f6fc; margin: 0; padding: 28px; }
-    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 16px; margin-bottom: 24px; }
-    h1 { margin: 0; color: #4ecdc4; font-size: 22px; }
-    .badge { background: rgba(78, 205, 196, 0.15); color: #4ecdc4; border: 1px solid #4ecdc4; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; }
-    .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-    .col { background: #0d2137; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 16px; min-height: 480px; }
-    .col-title { font-size: 13px; font-weight: 700; text-transform: uppercase; color: #8b949e; margin-bottom: 14px; display: flex; justify-content: space-between; }
-    .ticket { background: #071320; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-    .ticket-id { color: #4ecdc4; font-weight: 700; font-size: 12px; margin-bottom: 6px; }
-    .ticket-title { font-size: 13px; color: #f0f6fc; margin-bottom: 8px; }
-    .ticket-meta { display: flex; justify-content: space-between; font-size: 11px; color: #8b949e; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <div>
-      <h1>📋 Jira Agile Board: Boeing 787 Avionics Modernization</h1>
-      <p style="color: #8b949e; margin: 4px 0 0; font-size: 13px;">Project Key: <b>AVION</b> &middot; Sprint 42 - Hydraulic Telemetry & RAG Pipeline</p>
-    </div>
-    <span class="badge">● Active Jira Sprint</span>
-  </div>
-
-  <div class="kanban">
-    <div class="col">
-      <div class="col-title"><span>To Do</span> <span>2</span></div>
-      <div class="ticket"><div class="ticket-id">AVION-112</div><div class="ticket-title">Benchmark API latency on edge gateway during turbulence</div><div class="ticket-meta"><span>Priority: Medium</span><span>👤 Swapnil P.</span></div></div>
-      <div class="ticket"><div class="ticket-id">AVION-114</div><div class="ticket-title">Integrate FAA Airworthiness directive embedding pipeline</div><div class="ticket-meta"><span>Priority: High</span><span>👤 Unassigned</span></div></div>
-    </div>
-    <div class="col">
-      <div class="col-title"><span>In Progress</span> <span>2</span></div>
-      <div class="ticket"><div class="ticket-id">AVION-104</div><div class="ticket-title">Stream real-time hydraulic telemetry to cockpit display</div><div class="ticket-meta"><span>Priority: Highest</span><span>👤 Lead Engineer</span></div></div>
-      <div class="ticket"><div class="ticket-id">AVION-108</div><div class="ticket-title">Validate parts degradation baseline model</div><div class="ticket-meta"><span>Priority: High</span><span>👤 Data Scientist</span></div></div>
-    </div>
-    <div class="col">
-      <div class="col-title"><span>In Review</span> <span>1</span></div>
-      <div class="ticket"><div class="ticket-id">AVION-105</div><div class="ticket-title">High-frequency vibration stream parser for flight recorder</div><div class="ticket-meta"><span>Priority: Medium</span><span>👤 Senior Dev</span></div></div>
-    </div>
-    <div class="col">
-      <div class="col-title"><span>Done</span> <span>2</span></div>
-      <div class="ticket"><div class="ticket-id">AVION-101</div><div class="ticket-title">Provision GAEP ephemeral test sandbox architecture</div><div class="ticket-meta"><span>Priority: Highest</span><span>👤 Core Team</span></div></div>
-      <div class="ticket"><div class="ticket-id">AVION-102</div><div class="ticket-title">Implement JWT session cookie authentication layer</div><div class="ticket-meta"><span>Priority: High</span><span>👤 Core Team</span></div></div>
-    </div>
-  </div>
-</body>
-</html>`;
-
-  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-  res.end(html);
-});
-
-server.listen(8080, '0.0.0.0', () => console.log('Jira server running on 8080'));
-""", encoding="utf-8")
             compose_content = f"""services:
   workspace:
-    image: mcr.microsoft.com/playwright:v1.44.0-jammy
+    image: atlassian/jira-software:latest
     container_name: {workspace_name}
     ports:
       - "8080"
-    volumes:
-      - ./jira_board.js:/app/jira_board.js
-    working_dir: /app
-    command: ["node", "/app/jira_board.js"]
+    environment:
+      - JVM_MINIMUM_MEMORY=1024m
+      - JVM_MAXIMUM_MEMORY=2048m
 """
         else:
             compose_content = f"""services:
@@ -705,15 +641,11 @@ server.listen(8080, '0.0.0.0', () => console.log('Jira server running on 8080'))
             container_status = "simulated"
 
     elif config.get("type") == "cloud":
-        provider = "aws"
-        if "azure" in template:
-            provider = "azure"
-        elif "gcp" in template:
-            provider = "gcp"
-        workspace_url = f"http://localhost:3000/gaep/cloud-console?provider={provider}&workspace={workspace_name}"
+        credentials = sandbox_data.get("cloud_credentials", {})
+        workspace_url = credentials.get("console_url", "https://console.cloud.google.com/")
         container_status = "vended"
     elif config.get("type") == "saas":
-        workspace_url = f"http://localhost:3000/gaep/salesforce-console?workspace={workspace_name}"
+        workspace_url = "https://developer.salesforce.com/"
         container_status = "vended"
 
     metadata: dict[str, Any] = {
