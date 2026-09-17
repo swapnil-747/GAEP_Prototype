@@ -1,4 +1,9 @@
-const API_URL = "http://localhost:5000";
+import { PLATFORM_API_URL } from "./config";
+
+const API_URL =
+  typeof process !== "undefined" && process.env?.NEXT_PUBLIC_PLATFORM_API_URL
+    ? process.env.NEXT_PUBLIC_PLATFORM_API_URL
+    : PLATFORM_API_URL;
 
 export type CurrentUser = {
   id: string;

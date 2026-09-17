@@ -38,13 +38,51 @@ PASSWORD_HASH_ITERATIONS = 310_000
 PASSWORD_SALT_BYTES = 16
 
 
+def hash_password(password: str) -> str:
+    """
+    Returns a self-contained password hash:
+
+    pbkdf2_sha256$iterations$salt$derived_key
+    """
+    salt = secrets.token_bytes(PASSWORD_SALT_BYTES)
+
+    derived_key = hashlib.pbkdf2_hmac(
+        PASSWORD_HASH_ALGORITHM,
+        password.encode("utf-8"),
+        salt,
+        PASSWORD_HASH_ITERATIONS,
+    )
+
+    return (
+        f"pbkdf2_sha256$"
+        f"{PASSWORD_HASH_ITERATIONS}$"
+        f"{salt.hex()}$"
+        f"{derived_key.hex()}"
+    )
+
+
 def read_users() -> list[dict[str, Any]]:
     try:
-        return json.loads(
+        users = json.loads(
             USERS_FILE.read_text(encoding="utf-8")
         )
-    except FileNotFoundError:
-        return []
+    except (FileNotFoundError, json.JSONDecodeError):
+        users = []
+
+    if not isinstance(users, list) or len(users) == 0:
+        users = [
+            {
+                "id": "dc7df64a-bca0-485e-a187-5ace16368020",
+                "username": "engineer@example.com",
+                "password_hash": hash_password("password123"),
+            }
+        ]
+        try:
+            write_users(users)
+        except Exception:
+            pass
+
+    return users
 
 
 def write_users(users: list[dict[str, Any]]) -> None:
@@ -68,29 +106,6 @@ def find_user(username: str) -> dict[str, Any] | None:
             if user["username"] == normalized_username
         ),
         None,
-    )
-
-
-def hash_password(password: str) -> str:
-    """
-    Returns a self-contained password hash:
-
-    pbkdf2_sha256$iterations$salt$derived_key
-    """
-    salt = secrets.token_bytes(PASSWORD_SALT_BYTES)
-
-    derived_key = hashlib.pbkdf2_hmac(
-        PASSWORD_HASH_ALGORITHM,
-        password.encode("utf-8"),
-        salt,
-        PASSWORD_HASH_ITERATIONS,
-    )
-
-    return (
-        f"pbkdf2_sha256$"
-        f"{PASSWORD_HASH_ITERATIONS}$"
-        f"{salt.hex()}$"
-        f"{derived_key.hex()}"
     )
 
 

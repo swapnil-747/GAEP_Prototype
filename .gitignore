@@ -1,4 +1,8 @@
 node_modules
 .venv
+venv
 .next
 package-lock.json
+__pycache__/
+*.pyc
+*.tsbuildinfo

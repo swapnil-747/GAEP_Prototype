@@ -14,13 +14,22 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from auth import (
-    AUTH_COOKIE_NAME,
-    create_access_token,
-    create_user,
-    get_current_user,
-    verify_credentials,
-)
+try:
+    from auth import (
+        AUTH_COOKIE_NAME,
+        create_access_token,
+        create_user,
+        get_current_user,
+        verify_credentials,
+    )
+except ImportError:
+    from src.orchestrator.auth import (
+        AUTH_COOKIE_NAME,
+        create_access_token,
+        create_user,
+        get_current_user,
+        verify_credentials,
+    )
 
 
 app = FastAPI(
@@ -30,7 +39,10 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -59,11 +71,38 @@ def read_workspaces() -> list[dict[str, Any]]:
                 encoding="utf-8",
             )
         )
-    except json.JSONDecodeError:
-        return []
+    except (json.JSONDecodeError, FileNotFoundError):
+        data = []
 
     if not isinstance(data, list):
-        return []
+        data = []
+
+    # Automatically discover workspaces from WORKSPACES_DIR that contain meta.json
+    known_names = {
+        w.get("name")
+        for w in data
+        if isinstance(w, dict) and w.get("name")
+    }
+    discovered = False
+    if WORKSPACES_DIR.exists():
+        for ws_folder in WORKSPACES_DIR.iterdir():
+            if ws_folder.is_dir() and ws_folder.name not in known_names:
+                meta_file = ws_folder / "meta.json"
+                if meta_file.exists():
+                    try:
+                        meta = json.loads(meta_file.read_text(encoding="utf-8"))
+                        if isinstance(meta, dict) and meta.get("name"):
+                            data.append(meta)
+                            known_names.add(meta["name"])
+                            discovered = True
+                    except Exception:
+                        pass
+
+    if discovered:
+        try:
+            write_workspaces(data)
+        except Exception:
+            pass
 
     return data
 
@@ -211,7 +250,7 @@ async def health() -> dict[str, str]:
 @app.post("/auth/register")
 async def register(
     request: dict[str, Any],
-) -> dict[str, str]:
+) -> JSONResponse:
     username = request.get("username", "")
     password = request.get("password", "")
 
@@ -226,10 +265,26 @@ async def register(
         password,
     )
 
-    return {
-        "id": user["id"],
-        "username": user["username"],
-    }
+    token = create_access_token(user)
+
+    response = JSONResponse(
+        content={
+            "id": user["id"],
+            "username": user["username"],
+        }
+    )
+
+    response.set_cookie(
+        key=AUTH_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        secure=False,
+        samesite="lax",
+        max_age=8 * 60 * 60,
+        path="/",
+    )
+
+    return response
 
 
 @app.post("/auth/login")
@@ -289,6 +344,8 @@ async def logout() -> JSONResponse:
     response.delete_cookie(
         key=AUTH_COOKIE_NAME,
         path="/",
+        httponly=True,
+        samesite="lax",
     )
 
     return response
@@ -532,13 +589,12 @@ async def list_workspaces(
         get_current_user,
     ),
 ) -> dict[str, list[dict[str, Any]]]:
+    docker_client = None
     try:
-        client = docker.from_env()
-    except Exception as error:
-        raise HTTPException(
-            status_code=500,
-            detail="Unable to connect to Docker",
-        ) from error
+        docker_client = docker.from_env()
+        docker_client.ping()
+    except Exception:
+        docker_client = None
 
     owned_workspaces = [
         workspace
@@ -572,27 +628,44 @@ async def list_workspaces(
             ),
         }
 
-        try:
-            container = client.containers.get(
-                workspace_name,
-            )
+        if docker_client is not None:
+            try:
+                container = docker_client.containers.get(
+                    workspace_name,
+                )
 
+                response.append(
+                    {
+                        **base_details,
+                        "status": container.status,
+                        "image": (
+                            container.image.tags[0]
+                            if container.image.tags
+                            else "unknown"
+                        ),
+                    }
+                )
+            except docker.errors.NotFound:
+                response.append(
+                    {
+                        **base_details,
+                        "status": "removed",
+                        "image": "unknown",
+                    }
+                )
+            except Exception:
+                response.append(
+                    {
+                        **base_details,
+                        "status": "unknown",
+                        "image": "unknown",
+                    }
+                )
+        else:
             response.append(
                 {
                     **base_details,
-                    "status": container.status,
-                    "image": (
-                        container.image.tags[0]
-                        if container.image.tags
-                        else "unknown"
-                    ),
-                }
-            )
-        except docker.errors.NotFound:
-            response.append(
-                {
-                    **base_details,
-                    "status": "removed",
+                    "status": "offline",
                     "image": "unknown",
                 }
             )
@@ -650,6 +723,15 @@ async def terminate_workspace(
     ]
 
     write_workspaces(remaining_workspaces)
+
+    ws_dir = WORKSPACES_DIR / workspace_name
+    if ws_dir.exists():
+        meta_file = ws_dir / "meta.json"
+        if meta_file.exists():
+            try:
+                meta_file.unlink()
+            except Exception:
+                pass
 
     return {
         "status": "Terminated",
