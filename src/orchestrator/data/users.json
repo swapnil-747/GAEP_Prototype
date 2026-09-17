@@ -1,0 +1,12 @@
+[
+  {
+    "id": "dc7df64a-bca0-485e-a187-5ace16368020",
+    "username": "engineer@example.com",
+    "password_hash": "pbkdf2_sha256$310000$9714b99c1d748a317fca9b10b99edaf1$48268e9e86bf34f48674a3639269e151348e2b630b0e28306eb6f7b43f084dfa"
+  },
+  {
+    "id": "426a2cee-a4e5-47c6-9f10-a330132d41a5",
+    "username": "second@example.com",
+    "password_hash": "pbkdf2_sha256$310000$170877ed08a15479208b1f08c76180e2$bfa5108de164af42d277530c957db69ce58f00c10b8ebe88ef827ed967b1fd7b"
+  }
+]

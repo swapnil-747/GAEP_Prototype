@@ -1,0 +1,6 @@
+services:
+  workspace:
+    image: nginx:alpine
+    container_name: poc-dc7df64a-48480240
+    ports:
+      - "80"

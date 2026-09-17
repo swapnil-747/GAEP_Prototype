@@ -1,0 +1,9 @@
+{
+  "name": "poc-dc7df64a-48480240",
+  "owner_id": "dc7df64a-bca0-485e-a187-5ace16368020",
+  "owner_username": "engineer@example.com",
+  "template": "nginx",
+  "ttl_label": "1 min",
+  "created_at": 1789546660.9478288,
+  "expires_at": 1789546720.9478288
+}

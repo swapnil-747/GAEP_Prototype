@@ -1,0 +1,9 @@
+{
+  "name": "poc-dc7df64a-ed6f032a",
+  "owner_id": "dc7df64a-bca0-485e-a187-5ace16368020",
+  "owner_username": "engineer@example.com",
+  "template": "datascience",
+  "ttl_label": "1 day",
+  "created_at": 1789547994.4247267,
+  "expires_at": 1789634394.4247267
+}

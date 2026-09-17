@@ -1,0 +1,7 @@
+services:
+  workspace:
+    image: jupyter/datascience-notebook:latest
+    container_name: poc-dc7df64a-22726685
+    ports:
+      - "8888"
+    command: "start-notebook.sh --NotebookApp.token='' --NotebookApp.password='' --NotebookApp.ip=0.0.0.0 --NotebookApp.allow_origin='*' --NotebookApp.disable_check_xsrf=True"
