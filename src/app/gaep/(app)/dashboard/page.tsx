@@ -1,116 +1,315 @@
-'use client';
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { METRICS, ACTIVITY, GEO_USAGE, DLAB } from '@/gaep/data/content';
-import { ROUTES } from '@/gaep/navigation';
+"use client";
 
+import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
+
+import {
+  METRICS,
+  ACTIVITY,
+  GEO_USAGE,
+  DLAB,
+} from "@/gaep/data/content";
+import { ROUTES } from "@/gaep/navigation";
+import {
+  listWorkspaces,
+  terminateWorkspace,
+  type Workspace,
+} from "@/platform/api";
 
 export default function DashboardPage() {
-
-  const [activeWorkspaces, setActiveWorkspaces] = useState<any[]>([]);
+  const [activeWorkspaces, setActiveWorkspaces] = useState<
+    Workspace[]
+  >([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [terminating, setTerminating] = useState<string | null>(
+    null,
+  );
 
-  const terminate = async (name: string) => {
-  await fetch('http://localhost:5000/terminate', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ workspace_name: name })
-  });
-  // Trigger a re-fetch of the list
-  const res = await fetch('http://localhost:5000/workspaces');
-  const data = await res.json();
-  setActiveWorkspaces(data.workspaces);
-};
+  const loadWorkspaces = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-  // 2. Fetch data from your Python Orchestrator
-  useEffect(() => {
-    fetch('http://localhost:5000/workspaces')
-      .then((res) => res.json())
-      .then((data) => {
-        setActiveWorkspaces(data.workspaces);
-        setLoading(false);
-      })
-      .catch((err) => {
-        console.error("Failed to fetch workspaces", err);
-        setLoading(false);
-      });
+      const workspaces = await listWorkspaces();
+
+      setActiveWorkspaces(
+        Array.isArray(workspaces) ? workspaces : [],
+      );
+    } catch (loadError) {
+      console.error("Failed to fetch workspaces", loadError);
+
+      setActiveWorkspaces([]);
+
+      setError(
+        loadError instanceof Error
+          ? loadError.message
+          : "Unable to load workspaces.",
+      );
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadWorkspaces();
+  }, [loadWorkspaces]);
+
+  async function handleTerminate(workspaceName: string) {
+    const confirmed = window.confirm(
+      `Stop workspace "${workspaceName}"?`,
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setTerminating(workspaceName);
+      setError(null);
+
+      await terminateWorkspace(workspaceName);
+      await loadWorkspaces();
+    } catch (terminateError) {
+      console.error(
+        "Failed to terminate workspace",
+        terminateError,
+      );
+
+      setError(
+        terminateError instanceof Error
+          ? terminateError.message
+          : "Unable to terminate workspace.",
+      );
+    } finally {
+      setTerminating(null);
+    }
+  }
 
   return (
     <div className="fade">
       <h2 className="section-title">Dashboard</h2>
-      <p className="section-sub">Platform adoption, cross-geo usage, and the proven value behind GAEP.</p>
 
-      <div className="stats" style={{ justifyContent: 'flex-start' }}>
-        {METRICS.map((m) => (
-          <div key={m.key} className="stat"><div className="num">{m.value}</div><div className="lbl">{m.label}</div></div>
+      <p className="section-sub">
+        Platform adoption, cross-geo usage, and the proven value
+        behind GAEP.
+      </p>
+
+      <div
+        className="stats"
+        style={{ justifyContent: "flex-start" }}
+      >
+        {METRICS.map((metric) => (
+          <div
+            key={metric.key}
+            className="stat"
+          >
+            <div className="num">{metric.value}</div>
+            <div className="lbl">{metric.label}</div>
+          </div>
         ))}
       </div>
 
-      <div className="grid2" style={{ marginTop: 32 }}>
+      <div
+        className="grid2"
+        style={{ marginTop: 32 }}
+      >
         <div>
-          <h3 className="section-title" style={{ fontSize: 20 }}>India + US usage</h3>
-          <p className="section-sub">Follow-the-sun experimentation across geographies.</p>
-          {GEO_USAGE.map((g) => (
-            <div key={g.geo} style={{ marginBottom: 14 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
-                <span>{g.geo} team</span>
-                <span className="muted">{g.workspaces} workspaces &middot; {g.share}%</span>
+          <h3
+            className="section-title"
+            style={{ fontSize: 20 }}
+          >
+            India + US usage
+          </h3>
+
+          <p className="section-sub">
+            Follow-the-sun experimentation across geographies.
+          </p>
+
+          {GEO_USAGE.map((geo) => (
+            <div
+              key={geo.geo}
+              style={{ marginBottom: 14 }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  fontSize: 14,
+                }}
+              >
+                <span>{geo.geo} team</span>
+
+                <span className="muted">
+                  {geo.workspaces} workspaces &middot;{" "}
+                  {geo.share}%
+                </span>
               </div>
-              <div className="geobar"><span style={{ width: PCT(g.share) }} /></div>
+
+              <div className="geobar">
+                <span
+                  style={{
+                    width: PCT(geo.share),
+                  }}
+                />
+              </div>
             </div>
           ))}
         </div>
 
         <div>
-        <h3 className="section-title" style={{ fontSize: 20 }}>Active workspaces</h3>
-        
-        {loading ? (
-          <p>Loading workspaces...</p>
-        ) : activeWorkspaces.length === 0 ? (
-          <p className="muted">No active workspaces found.</p>
-        ) : (
-          activeWorkspaces.map((w: any) => (
-            <div key={w.name} className="row">
-              {/* Note: I'm mapping the data structure returned by your Python script */}
-              <span>{w.name} &mdash; <span className="muted">Status: {w.status}</span></span>
-              <span className="gaepc">{w.image}</span>
-              <span className="gaepc"> <button className="btn-small" onClick={() => terminate(w.name)}>Stop</button></span>
+          <h3
+            className="section-title"
+            style={{ fontSize: 20 }}
+          >
+            Active workspaces
+          </h3>
 
+          {loading && (
+            <p className="muted">
+              Loading workspaces...
+            </p>
+          )}
+
+          {!loading && error && (
+            <div
+              role="alert"
+              style={{
+                color: "#ff4d4f",
+                marginBottom: 14,
+                fontSize: 14,
+              }}
+            >
+              {error}
             </div>
-            
-          ))
-        )}
-      </div>
+          )}
+
+          {!loading &&
+            !error &&
+            activeWorkspaces.length === 0 && (
+              <p className="muted">
+                No active workspaces found.
+              </p>
+            )}
+
+          {!loading &&
+            activeWorkspaces.length > 0 && (
+              <div>
+                {activeWorkspaces.map((workspace) => (
+                  <div
+                    key={workspace.name}
+                    className="row"
+                  >
+                    <span>
+                      {workspace.name}{" "}
+                      <span className="muted">
+                        — Status: {workspace.status}
+                      </span>
+                    </span>
+
+                    <span className="gaepc">
+                      {workspace.image}
+                    </span>
+
+                    <span className="gaepc">
+                      <button
+                        className="btn-small"
+                        type="button"
+                        disabled={
+                          terminating === workspace.name
+                        }
+                        onClick={() =>
+                          handleTerminate(workspace.name)
+                        }
+                      >
+                        {terminating === workspace.name
+                          ? "Stopping..."
+                          : "Stop"}
+                      </button>
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
       </div>
 
       <div style={{ marginTop: 32 }}>
-        <h3 className="section-title" style={{ fontSize: 20 }}>Recent activity</h3>
-        {ACTIVITY.map((a) => (
-          <div key={a.id} className="row">
-            <span><b>{a.who}</b> {a.action}</span>
-            <span className="muted">{a.when}</span>
+        <h3
+          className="section-title"
+          style={{ fontSize: 20 }}
+        >
+          Recent activity
+        </h3>
+
+        {ACTIVITY.map((activity) => (
+          <div
+            key={activity.id}
+            className="row"
+          >
+            <span>
+              <b>{activity.who}</b>{" "}
+              {activity.action}
+            </span>
+
+            <span className="muted">
+              {activity.when}
+            </span>
           </div>
         ))}
       </div>
 
       <div style={{ marginTop: 40 }}>
-        <h3 className="section-title" style={{ fontSize: 20 }}>This model already delivered</h3>
-        <p className="section-sub">GAEP is not a bet on an untested idea. A predecessor lab powered 15+ real initiatives.</p>
+        <h3
+          className="section-title"
+          style={{ fontSize: 20 }}
+        >
+          This model already delivered
+        </h3>
+
+        <p className="section-sub">
+          GAEP is not a bet on an untested idea. A predecessor lab
+          powered 15+ real initiatives.
+        </p>
+
         <div className="grid">
-          {DLAB.map((d) => (
-            <div key={d.id} className="card">
-              <h3 style={{ color: 'var(--teal)', fontSize: 15 }}>{d.title}</h3>
-              <p>{d.summary}</p>
+          {DLAB.map((item) => (
+            <div
+              key={item.id}
+              className="card"
+            >
+              <h3
+                style={{
+                  color: "var(--teal)",
+                  fontSize: 15,
+                }}
+              >
+                {item.title}
+              </h3>
+
+              <p>{item.summary}</p>
             </div>
           ))}
         </div>
-        <div style={{ textAlign: 'center', marginTop: 24 }}>
-          <Link className="btn" href={ROUTES.catalog}>Start experimenting</Link>
+
+        <div
+          style={{
+            textAlign: "center",
+            marginTop: 24,
+          }}
+        >
+          <Link
+            className="btn"
+            href={ROUTES.catalog}
+          >
+            Start experimenting
+          </Link>
         </div>
       </div>
     </div>
   );
 }
 
-function PCT(n: number): string { return n + '%'; }
+function PCT(value: number): string {
+  return `${value}%`;
+}

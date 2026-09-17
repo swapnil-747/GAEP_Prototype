@@ -5,7 +5,7 @@ The GAEP (Global Aerospace Engineering Platform) Prototype is a self-service orc
 
 ## Tech Stack
 - Frontend: Next.js (TypeScript), React
-- Backend/Orchestrator: Python (FastAPI), Docker SDK
+- Backend/Orchestrator: Python (FastAPI), Docker SDK, PyJWT
 - Infrastructure: Docker Compose (local environment)
 
 ## Getting Started
@@ -17,29 +17,51 @@ The GAEP (Global Aerospace Engineering Platform) Prototype is a self-service orc
 
 ### Installation
 1. Install Frontend Dependencies:
-   `npm install`
+   ```bash
+   npm install
+   ```
 2. Setup Orchestrator Dependencies:
-   `cd ./src/orchestrator`
-   `pip install fastapi uvicorn docker`
+   ```bash
+   pip install -r requirements.txt
+   ```
+   *(or `cd src/orchestrator && pip install -r ../../requirements.txt`)*
 
 ### Running the Platform
 1. Start the Orchestrator (Backend):
-   `cd ./src/orchestrator`
-   `python orchestrator.py`
+   ```bash
+   cd src/orchestrator
+   python orchestrator.py
+   ```
+   The backend API will run at `http://localhost:5000`.
+
 2. Start the Dashboard (Frontend):
-   `npm run dev`
-3. Access: Navigate to http://localhost:3000/gaep/provision
+   Open a new terminal and run:
+   ```bash
+   npm run dev
+   ```
+   The frontend will run at `http://localhost:3000`.
+
+3. Access the Platform:
+   - Login: `http://localhost:3000/gaep/login`
+     - Default demo user: `engineer@example.com`
+     - Password: `password123`
+     - Or create a new account using the "Create account" tab.
+   - Catalog: `http://localhost:3000/gaep/catalog`
+   - Provision Workspaces: `http://localhost:3000/gaep/provision`
+   - Active Workspaces Dashboard: `http://localhost:3000/gaep/dashboard`
 
 ## Architecture Highlights
+- Authentication: Secure session management using HTTP-only cookies and JWT tokens.
 - Dynamic Port Mapping: Orchestrator retrieves assigned ports from Docker to prevent collisions.
-- Resource Lifecycle: Includes a background loop monitoring workspace TTL (Time-To-Live) to decommission expired containers.
+- Resource Lifecycle: Includes a background janitor loop monitoring workspace TTL (Time-To-Live) to decommission expired containers.
 - Service Decoupling: UI is separated from orchestration logic, allowing for easy migration to K8s/OpenShift.
 
 ## Step-by-Step Replication
-- In DockerHub search and pull these three images:
-    1. dorowu/ubuntu-desktop-lxde-vnc
-    2. jupyter/datascience-notebook
-    3. nginx
+- In DockerHub search and pull these images (if testing with live containers):
+    1. `dorowu/ubuntu-desktop-lxde-vnc`
+    2. `jupyter/datascience-notebook`
+    3. `nginx`
 
-- Run the the backend files as shown above.
-- Go to catalog and at the bottom you will find two new templates. Provision either of those. 
+- Run the backend orchestrator and frontend dev server as shown above.
+- Go to catalog / provision page to launch your workspaces.
+

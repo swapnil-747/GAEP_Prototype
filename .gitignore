@@ -1,6 +1,27 @@
+# Node dependencies and build
 node_modules/
 .next/
 *.log
-tsconfig.tsbuildinfo
+package-lock.json
+*.tsbuildinfo
+
+# Python virtual environment and cache
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment variables
 .env
 .env.*
+.env.local
+
+# Orchestrator runtime data and dynamic workspaces
+src/orchestrator/workspaces/
+src/orchestrator/data/workspaces.json
+src/orchestrator/data/users.json
+src/orchestrator/data/user.json
+*.tmp
+
