@@ -137,3 +137,51 @@
 .gaep .muted { color: var(--muted); }
 .gaep .cat { font-size: 11px; color: var(--purple); font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
 .gaep .toolbar-tabs { display: flex; gap: 10px; margin-bottom: 24px; }
+
+/* Expanded Sandbox & Workbench Controls */
+.gaep .launch-banner {
+  background: linear-gradient(135deg, rgba(78,205,196,.15), rgba(247,127,0,.15));
+  border: 1px solid var(--teal); border-radius: 14px; padding: 20px 24px;
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;
+}
+.gaep .launch-banner .title { font-size: 18px; font-weight: 700; color: #fff; }
+.gaep .launch-banner .sub { font-size: 13px; color: var(--muted); margin-top: 4px; }
+.gaep .launch-banner .btn-action {
+  background: linear-gradient(135deg, var(--teal), #3bb3ab); color: #08222f;
+  padding: 12px 24px; border-radius: 10px; font-weight: 700; font-size: 14px;
+  text-decoration: none; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: .2s;
+}
+.gaep .launch-banner .btn-action:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(78,205,196,.3); }
+
+.gaep .guardrail-card {
+  background: rgba(10, 26, 43, 0.7); border: 1px solid var(--line); border-radius: 12px;
+  padding: 16px 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;
+}
+.gaep .guardrail-pill {
+  display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600;
+  padding: 4px 10px; border-radius: 6px; background: rgba(78,205,196,.12); color: var(--teal);
+}
+
+.gaep .cred-box {
+  background: #06111d; border: 1px solid var(--line); border-radius: 10px; padding: 14px 18px;
+  margin-bottom: 14px; position: relative; font-family: 'Cascadia Code', 'Consolas', monospace; font-size: 13px; color: #9fe6c5;
+}
+.gaep .cred-box .copy-btn {
+  position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,.08); border: 1px solid var(--line);
+  color: var(--muted); padding: 4px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; transition: .2s;
+}
+.gaep .cred-box .copy-btn:hover { color: #fff; border-color: var(--teal); }
+
+.gaep .kanban-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 14px; }
+.gaep .kanban-col { background: rgba(7, 19, 32, 0.7); border: 1px solid var(--line); border-radius: 12px; padding: 14px; min-height: 280px; }
+.gaep .kanban-col h5 { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 0 0 12px 0; display: flex; justify-content: space-between; }
+.gaep .kanban-ticket {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 10px;
+  font-size: 12px; cursor: pointer; transition: .2s;
+}
+.gaep .kanban-ticket:hover { border-color: var(--teal); transform: translateY(-2px); }
+
+.gaep .telemetry-feed { width: 100%; border-collapse: collapse; font-size: 13px; }
+.gaep .telemetry-feed th { text-align: left; padding: 10px; color: var(--muted); font-size: 11px; text-transform: uppercase; border-bottom: 1px solid var(--line); }
+.gaep .telemetry-feed td { padding: 10px; border-bottom: 1px solid rgba(255,255,255,.05); font-family: 'Cascadia Code', monospace; }
+

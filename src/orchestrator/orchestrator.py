@@ -22,6 +22,7 @@ try:
         get_current_user,
         verify_credentials,
     )
+    from sandboxes import get_sandbox_payload
 except ImportError:
     from src.orchestrator.auth import (
         AUTH_COOKIE_NAME,
@@ -30,6 +31,7 @@ except ImportError:
         get_current_user,
         verify_credentials,
     )
+    from src.orchestrator.sandboxes import get_sandbox_payload
 
 
 app = FastAPI(
@@ -64,6 +66,50 @@ if not WORKSPACES_FILE.exists():
     )
 
 
+TEMPLATE_CONFIG: dict[str, dict[str, Any]] = {
+    "nginx": {"image": "nginx:alpine", "port": "80", "type": "container"},
+    "datascience": {
+        "image": "jupyter/datascience-notebook:latest",
+        "port": "8888",
+        "type": "container",
+    },
+    "workbench": {
+        "image": "dorowu/ubuntu-desktop-lxde-vnc:latest",
+        "port": "80",
+        "type": "container",
+    },
+    "kibana": {
+        "image": "kibana:8.11.0",
+        "port": "5601",
+        "type": "container",
+    },
+    "elasticsearch": {
+        "image": "elasticsearch:8.11.0",
+        "port": "9200",
+        "type": "container",
+    },
+    "splunk": {
+        "image": "splunk/splunk:latest",
+        "port": "8000",
+        "type": "container",
+    },
+    "playwright": {
+        "image": "mcr.microsoft.com/playwright:v1.44.0-jammy",
+        "port": "9323",
+        "type": "container",
+    },
+    "jira": {
+        "image": "atlassian/jira-software:latest",
+        "port": "8080",
+        "type": "container",
+    },
+    "aws-sandbox": {"type": "cloud", "provider": "AWS"},
+    "azure-sandbox": {"type": "cloud", "provider": "Azure"},
+    "gcp-sandbox": {"type": "cloud", "provider": "GCP"},
+    "salesforce": {"type": "saas", "provider": "Salesforce"},
+}
+
+
 def read_workspaces() -> list[dict[str, Any]]:
     try:
         data = json.loads(
@@ -77,7 +123,6 @@ def read_workspaces() -> list[dict[str, Any]]:
     if not isinstance(data, list):
         data = []
 
-    # Automatically discover workspaces from WORKSPACES_DIR that contain meta.json
     known_names = {
         w.get("name")
         for w in data
@@ -123,18 +168,11 @@ def write_workspaces(
             else:
                 deduped.append(ws)
 
-    temporary_file = WORKSPACES_FILE.with_suffix(
-        ".tmp",
-    )
-
+    temporary_file = WORKSPACES_FILE.with_suffix(".tmp")
     temporary_file.write_text(
-        json.dumps(
-            deduped,
-            indent=2,
-        ),
+        json.dumps(deduped, indent=2),
         encoding="utf-8",
     )
-
     temporary_file.replace(WORKSPACES_FILE)
 
 
@@ -147,11 +185,7 @@ def get_ttl_seconds(ttl_label: str) -> int:
         "30 days": 30 * 24 * 60 * 60,
         "1 min": 60,
     }
-
-    return mapping.get(
-        ttl_label,
-        mapping["1 hour"],
-    )
+    return mapping.get(ttl_label, mapping["1 hour"])
 
 
 def get_owned_workspace(
@@ -169,11 +203,9 @@ def get_owned_workspace(
     )
 
 
-def build_workspace_name(user_id: str) -> str:
-    return (
-        f"poc-{user_id[:8]}-"
-        f"{uuid.uuid4().hex[:8]}"
-    )
+def build_workspace_name(user_id: str, template: str = "ws") -> str:
+    prefix = template.replace("-sandbox", "").replace("-", "")[:8]
+    return f"gaep-{prefix}-{uuid.uuid4().hex[:6]}"
 
 
 def build_workspace_url(mapped_port: str) -> str:
@@ -183,34 +215,31 @@ def build_workspace_url(mapped_port: str) -> str:
 def get_workspace_compose_file(
     workspace_name: str,
 ) -> Path:
-    return (
-        WORKSPACES_DIR
-        / workspace_name
-        / "docker-compose.yml"
-    )
+    return WORKSPACES_DIR / workspace_name / "docker-compose.yml"
 
 
 def stop_workspace_container(
     workspace_name: str,
 ) -> None:
-    compose_file = get_workspace_compose_file(
-        workspace_name,
-    )
-
+    compose_file = get_workspace_compose_file(workspace_name)
     if not compose_file.exists():
         return
 
-    subprocess.run(
-        [
-            "docker",
-            "compose",
-            "-f",
-            str(compose_file),
-            "down",
-        ],
-        capture_output=True,
-        text=True,
-    )
+    try:
+        subprocess.run(
+            [
+                "docker",
+                "compose",
+                "-f",
+                str(compose_file),
+                "down",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except Exception:
+        pass
 
 
 async def ttl_cleanup_task() -> None:
@@ -233,14 +262,10 @@ async def ttl_cleanup_task() -> None:
                 continue
 
             workspace_name = workspace.get("name")
-
             if not workspace_name:
                 continue
 
-            print(
-                f"Expiring workspace: {workspace_name}",
-            )
-
+            print(f"Expiring workspace: {workspace_name}")
             stop_workspace_container(workspace_name)
 
         if len(active_workspaces) != len(workspaces):
@@ -269,15 +294,10 @@ async def register(
 
     if not isinstance(username, str):
         username = ""
-
     if not isinstance(password, str):
         password = ""
 
-    user = create_user(
-        username,
-        password,
-    )
-
+    user = create_user(username, password)
     token = create_access_token(user)
 
     response = JSONResponse(
@@ -286,7 +306,6 @@ async def register(
             "username": user["username"],
         }
     )
-
     response.set_cookie(
         key=AUTH_COOKIE_NAME,
         value=token,
@@ -296,7 +315,6 @@ async def register(
         max_age=8 * 60 * 60,
         path="/",
     )
-
     return response
 
 
@@ -309,15 +327,10 @@ async def login(
 
     if not isinstance(username, str):
         username = ""
-
     if not isinstance(password, str):
         password = ""
 
-    user = verify_credentials(
-        username,
-        password,
-    )
-
+    user = verify_credentials(username, password)
     if not user:
         raise HTTPException(
             status_code=401,
@@ -332,7 +345,6 @@ async def login(
             "username": user["username"],
         }
     )
-
     response.set_cookie(
         key=AUTH_COOKIE_NAME,
         value=token,
@@ -342,33 +354,26 @@ async def login(
         max_age=8 * 60 * 60,
         path="/",
     )
-
     return response
 
 
 @app.post("/auth/logout")
 async def logout() -> JSONResponse:
     response = JSONResponse(
-        content={
-            "status": "Logged out",
-        }
+        content={"status": "Logged out"}
     )
-
     response.delete_cookie(
         key=AUTH_COOKIE_NAME,
         path="/",
         httponly=True,
         samesite="lax",
     )
-
     return response
 
 
 @app.get("/auth/me")
 async def me(
-    user: dict[str, str] = Depends(
-        get_current_user,
-    ),
+    user: dict[str, str] = Depends(get_current_user),
 ) -> dict[str, str]:
     return user
 
@@ -376,108 +381,108 @@ async def me(
 @app.post("/provision")
 async def provision_workspace(
     request: dict[str, Any],
-    user: dict[str, str] = Depends(
-        get_current_user,
-    ),
+    user: dict[str, str] = Depends(get_current_user),
 ) -> dict[str, Any]:
-    template = request.get(
-        "template",
-        "nginx",
-    )
-
-    ttl_label = request.get(
-        "ttl",
-        "1 hour",
-    )
+    template = request.get("template", "datascience")
+    ttl_label = request.get("ttl", "4 hours")
 
     if not isinstance(template, str):
-        template = "nginx"
-
+        template = "datascience"
     if not isinstance(ttl_label, str):
-        ttl_label = "1 hour"
+        ttl_label = "4 hours"
 
-    templates: dict[str, dict[str, str]] = {
-        "nginx": {
-            "image": "nginx:alpine",
-            "port": "80",
-        },
-        "datascience": {
-            "image": (
-                "jupyter/"
-                "datascience-notebook:latest"
-            ),
-            "port": "8888",
-        },
-        "workbench": {
-            "image": (
-                "dorowu/"
-                "ubuntu-desktop-lxde-vnc:latest"
-            ),
-            "port": "80",
-        },
-    }
-
-    config = templates.get(template)
-
+    config = TEMPLATE_CONFIG.get(template)
     if config is None:
         raise HTTPException(
             status_code=400,
             detail=f"Unknown template: {template}",
         )
 
-    workspace_name = build_workspace_name(
-        user["id"],
-    )
+    workspace_name = build_workspace_name(user["id"], template)
+    workspace_path = WORKSPACES_DIR / workspace_name
+    workspace_path.mkdir(parents=True, exist_ok=True)
 
-    workspace_path = (
-        WORKSPACES_DIR / workspace_name
-    )
+    ttl_seconds = get_ttl_seconds(ttl_label)
+    created_at = time.time()
+    expires_at = created_at + ttl_seconds
 
-    workspace_path.mkdir(
-        parents=True,
-        exist_ok=True,
-    )
+    sandbox_data = get_sandbox_payload(template, user["id"], workspace_name)
 
-    compose_content = f"""services:
+    workspace_url: str | None = None
+    container_status = "active"
+
+    # Container-based workspaces
+    if config.get("type") == "container":
+        compose_content = f"""services:
   workspace:
     image: {config["image"]}
     container_name: {workspace_name}
     ports:
       - "{config["port"]}"
 """
+        if template == "datascience":
+            compose_content += (
+                "    command: start-notebook.sh --NotebookApp.token='' "
+                "--NotebookApp.password='' --NotebookApp.ip=0.0.0.0 "
+                "--NotebookApp.allow_origin='*' --NotebookApp.disable_check_xsrf=True\n"
+            )
+        elif template == "workbench":
+            compose_content += (
+                "    environment:\n"
+                "      - RESOLUTION=1920x1080\n"
+            )
 
-    if template == "datascience":
-        compose_content += (
-            "    command: "
-            "\"start-notebook.sh "
-            "--NotebookApp.token='' "
-            "--NotebookApp.password='' "
-            "--NotebookApp.ip=0.0.0.0 "
-            "--NotebookApp.allow_origin='*' "
-            "--NotebookApp.disable_check_xsrf=True\"\n"
-        )
+        compose_file = workspace_path / "docker-compose.yml"
+        compose_file.write_text(compose_content, encoding="utf-8")
 
-    if template == "workbench":
-        compose_content += (
-            "    environment:\n"
-            "      - RESOLUTION=1920x1080\n"
-        )
+        try:
+            subprocess.run(
+                [
+                    "docker",
+                    "compose",
+                    "-f",
+                    str(compose_file),
+                    "up",
+                    "-d",
+                ],
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
 
-    compose_file = (
-        workspace_path / "docker-compose.yml"
-    )
+            port_res = subprocess.run(
+                [
+                    "docker",
+                    "port",
+                    workspace_name,
+                    config["port"],
+                ],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
 
-    compose_file.write_text(
-        compose_content,
-        encoding="utf-8",
-    )
+            if port_res.returncode == 0 and port_res.stdout.strip():
+                mapped_port = port_res.stdout.strip().split(":")[-1].strip()
+                workspace_url = build_workspace_url(mapped_port)
+            else:
+                workspace_url = f"http://localhost:{config['port']}"
 
-    ttl_seconds = get_ttl_seconds(
-        ttl_label,
-    )
+        except Exception as err:
+            # Graceful fallback for PoC demonstration when Docker is offline
+            print(f"Docker execution note: {err}. Operating in PoC simulation mode.")
+            workspace_url = f"http://localhost:{config['port']}"
+            container_status = "simulated"
 
-    created_at = time.time()
-    expires_at = created_at + ttl_seconds
+    elif config.get("type") == "cloud":
+        credentials = sandbox_data.get("cloud_credentials", {})
+        workspace_url = credentials.get("console_url", "https://aws.amazon.com/console")
+        container_status = "vended"
+    elif config.get("type") == "saas":
+        sf_data = sandbox_data.get("salesforce_data", {})
+        workspace_url = sf_data.get("instance_url", "https://login.salesforce.com")
+        container_status = "vended"
 
     metadata: dict[str, Any] = {
         "name": workspace_name,
@@ -487,111 +492,22 @@ async def provision_workspace(
         "ttl_label": ttl_label,
         "created_at": created_at,
         "expires_at": expires_at,
-        "url": None,
+        "url": workspace_url,
+        "status": container_status,
+        "sandbox_data": sandbox_data,
     }
 
     metadata_file = workspace_path / "meta.json"
-
     metadata_file.write_text(
-        json.dumps(
-            metadata,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
-
-    try:
-        subprocess.run(
-            [
-                "docker",
-                "compose",
-                "-f",
-                str(compose_file),
-                "up",
-                "-d",
-            ],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except FileNotFoundError as error:
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Docker was not found. "
-                "Make sure Docker Desktop is running."
-            ),
-        ) from error
-    except subprocess.CalledProcessError as error:
-        stop_workspace_container(
-            workspace_name,
-        )
-
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                error.stderr
-                or "Docker provisioning failed"
-            ),
-        ) from error
-
-    result = subprocess.run(
-        [
-            "docker",
-            "port",
-            workspace_name,
-            config["port"],
-        ],
-        capture_output=True,
-        text=True,
-    )
-
-    if (
-        result.returncode != 0
-        or not result.stdout.strip()
-    ):
-        stop_workspace_container(
-            workspace_name,
-        )
-
-        raise HTTPException(
-            status_code=500,
-            detail=(
-                "Unable to determine mapped "
-                "Docker port"
-            ),
-        )
-
-    mapped_port = (
-        result.stdout.strip()
-        .split(":")[-1]
-        .strip()
-    )
-
-    workspace_url = build_workspace_url(
-        mapped_port,
-    )
-
-    metadata["url"] = workspace_url
-
-    metadata_file.write_text(
-        json.dumps(
-            metadata,
-            indent=2,
-        ),
+        json.dumps(metadata, indent=2),
         encoding="utf-8",
     )
 
     workspaces = read_workspaces()
     existing_index = next(
-        (
-            i
-            for i, ws in enumerate(workspaces)
-            if ws.get("name") == workspace_name
-        ),
+        (i for i, ws in enumerate(workspaces) if ws.get("name") == workspace_name),
         None,
     )
-
     if existing_index is not None:
         workspaces[existing_index] = metadata
     else:
@@ -606,14 +522,13 @@ async def provision_workspace(
         "owner_id": user["id"],
         "url": workspace_url,
         "expires_at": expires_at,
+        "sandbox_data": sandbox_data,
     }
 
 
 @app.get("/workspaces")
 async def list_workspaces(
-    user: dict[str, str] = Depends(
-        get_current_user,
-    ),
+    user: dict[str, str] = Depends(get_current_user),
 ) -> dict[str, list[dict[str, Any]]]:
     docker_client = None
     try:
@@ -632,34 +547,29 @@ async def list_workspaces(
 
     for workspace in owned_workspaces:
         workspace_name = workspace.get("name")
-
         if not workspace_name:
             continue
 
+        template_id = workspace.get("template", "unknown")
+        sandbox_data = workspace.get("sandbox_data")
+        if not sandbox_data:
+            sandbox_data = get_sandbox_payload(template_id, user["id"], workspace_name)
+
         base_details = {
             "name": workspace_name,
-            "template": workspace.get(
-                "template",
-                "unknown",
-            ),
-            "expires_at": workspace.get(
-                "expires_at",
-            ),
+            "template": template_id,
+            "expires_at": workspace.get("expires_at"),
             "url": workspace.get("url"),
-            "owner_id": workspace.get(
-                "owner_id",
-            ),
-            "owner_username": workspace.get(
-                "owner_username",
-            ),
+            "owner_id": workspace.get("owner_id"),
+            "owner_username": workspace.get("owner_username"),
+            "sandbox_data": sandbox_data,
         }
+
+        current_status = workspace.get("status", "running")
 
         if docker_client is not None:
             try:
-                container = docker_client.containers.get(
-                    workspace_name,
-                )
-
+                container = docker_client.containers.get(workspace_name)
                 response.append(
                     {
                         **base_details,
@@ -675,49 +585,40 @@ async def list_workspaces(
                 response.append(
                     {
                         **base_details,
-                        "status": "removed",
-                        "image": "unknown",
+                        "status": current_status,
+                        "image": "gaep-sandbox",
                     }
                 )
             except Exception:
                 response.append(
                     {
                         **base_details,
-                        "status": "unknown",
-                        "image": "unknown",
+                        "status": current_status,
+                        "image": "gaep-sandbox",
                     }
                 )
         else:
             response.append(
                 {
                     **base_details,
-                    "status": "offline",
-                    "image": "unknown",
+                    "status": current_status if current_status != "removed" else "removed",
+                    "image": "gaep-sandbox",
                 }
             )
 
-    return {
-        "workspaces": response,
-    }
+    return {"workspaces": response}
 
 
 @app.post("/terminate")
 async def terminate_workspace(
     request: dict[str, Any],
-    user: dict[str, str] = Depends(
-        get_current_user,
-    ),
+    user: dict[str, str] = Depends(get_current_user),
 ) -> dict[str, str]:
-    workspace_name = request.get(
-        "workspace_name",
-        "",
-    )
-
+    workspace_name = request.get("workspace_name", "")
     if not isinstance(workspace_name, str):
         workspace_name = ""
 
     workspace_name = workspace_name.strip()
-
     if not workspace_name:
         raise HTTPException(
             status_code=400,
@@ -735,9 +636,7 @@ async def terminate_workspace(
             detail="Workspace not found",
         )
 
-    stop_workspace_container(
-        workspace_name,
-    )
+    stop_workspace_container(workspace_name)
 
     remaining_workspaces = [
         item

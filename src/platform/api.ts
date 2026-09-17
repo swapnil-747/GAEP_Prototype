@@ -23,6 +23,7 @@ export type ProvisionResponse = {
   owner_id: string;
   url: string;
   expires_at: number;
+  sandbox_data?: Record<string, any>;
 };
 
 export type Workspace = {
@@ -34,6 +35,7 @@ export type Workspace = {
   url: string | null;
   owner_id: string;
   owner_username?: string;
+  sandbox_data?: Record<string, any>;
 };
 
 type WorkspaceListResponse = {

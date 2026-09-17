@@ -14,9 +14,20 @@ export default function CatalogPage() {
   function launchTemplate(id: string) {
     router.push(`${ROUTES.provision}?template=${id}`);
   }
-  function launchTool() {
-    // Tools route into the same provision flow (mock) using the AI/ML base.
-    router.push(`${ROUTES.provision}?template=aiml`);
+  function launchTool(toolId: string) {
+    const mapping: Record<string, string> = {
+      aws: 'aws-sandbox',
+      azure: 'azure-sandbox',
+      gcp: 'gcp-sandbox',
+      kibana: 'kibana',
+      splunk: 'splunk',
+      elasticsearch: 'elasticsearch',
+      playwright: 'playwright',
+      jira: 'jira',
+      salesforce: 'salesforce',
+    };
+    const targetTemplate = mapping[toolId] ?? 'datascience';
+    router.push(`${ROUTES.provision}?template=${targetTemplate}`);
   }
 
   return (
@@ -48,7 +59,7 @@ export default function CatalogPage() {
           <p className="section-sub" style={{ marginTop: -8 }}>Illustrative set — the catalog is easily extended with more of our ecosystem.</p>
           <div className="grid">
             {TOOLS.map((t) => (
-              <div key={t.id} className="card click" onClick={launchTool}>
+              <div key={t.id} className="card click" onClick={() => launchTool(t.id)}>
                 {t.tag && <div className="tag-top">{t.tag}</div>}
                 <div className="icon">{t.icon}</div>
                 <div className="cat">{t.category}</div>

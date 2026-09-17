@@ -1,6 +1,23 @@
 // GAEP shared TypeScript types. Prototype/demo only — all data is mock.
 
-export type TemplateId = 'aiml' | 'genai' | 'stream' | 'bi' | 'db' | 'data' | 'datascience' | 'workbench';
+export type TemplateId =
+  | 'aiml'
+  | 'genai'
+  | 'stream'
+  | 'bi'
+  | 'db'
+  | 'data'
+  | 'datascience'
+  | 'workbench'
+  | 'kibana'
+  | 'elasticsearch'
+  | 'splunk'
+  | 'playwright'
+  | 'jira'
+  | 'aws-sandbox'
+  | 'azure-sandbox'
+  | 'gcp-sandbox'
+  | 'salesforce';
 
 export interface WorkspaceTemplate {
   id: TemplateId;
@@ -9,11 +26,19 @@ export interface WorkspaceTemplate {
   description: string;
   chips: string[];
   tag?: string;
+  category?: string;
 }
 
 export type ToolCategory =
-  | 'AI/GenAI' | 'Cloud' | 'Data/DB' | 'Streaming'
-  | 'Observability' | 'Automation' | 'Integration';
+  | 'AI/GenAI'
+  | 'Cloud'
+  | 'Data/DB'
+  | 'Streaming'
+  | 'Observability'
+  | 'Automation'
+  | 'Integration'
+  | 'Quality Engineering'
+  | 'Enterprise & Agile';
 
 export interface EcosystemTool {
   id: string;

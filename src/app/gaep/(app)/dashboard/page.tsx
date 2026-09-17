@@ -199,34 +199,45 @@ export default function DashboardPage() {
                   <div
                     key={workspace.name}
                     className="row"
+                    style={{ alignItems: "center", gap: 10 }}
                   >
-                    <span>
-                      {workspace.name}{" "}
-                      <span className="muted">
-                        — Status: {workspace.status}
+                    <div>
+                      <Link
+                        href={`${ROUTES.workspace}?workspace_name=${workspace.name}&template=${workspace.template}`}
+                        style={{ color: "#fff", fontWeight: 600, textDecoration: "none" }}
+                      >
+                        {workspace.name}
+                      </Link>{" "}
+                      <span className="muted" style={{ fontSize: 12 }}>
+                        &middot; {workspace.template}
                       </span>
-                    </span>
+                    </div>
 
-                    <span className="gaepc">
-                      {workspace.image}
-                    </span>
-
-                    <span className="gaepc">
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <span className="pill" style={{ fontSize: 11 }}>
+                        ● {workspace.status}
+                      </span>
+                      {workspace.url && (
+                        <a
+                          href={workspace.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="gaepc"
+                          style={{ fontSize: 12, textDecoration: "none" }}
+                        >
+                          Launch ↗
+                        </a>
+                      )}
                       <button
                         className="btn-small"
                         type="button"
-                        disabled={
-                          terminating === workspace.name
-                        }
-                        onClick={() =>
-                          handleTerminate(workspace.name)
-                        }
+                        style={{ padding: "3px 8px", fontSize: 11, background: "transparent", color: "#e88", border: "1px solid rgba(238,136,136,0.3)", borderRadius: 6, cursor: "pointer" }}
+                        disabled={terminating === workspace.name}
+                        onClick={() => handleTerminate(workspace.name)}
                       >
-                        {terminating === workspace.name
-                          ? "Stopping..."
-                          : "Stop"}
+                        {terminating === workspace.name ? "Stopping…" : "Stop"}
                       </button>
-                    </span>
+                    </div>
                   </div>
                 ))}
               </div>
