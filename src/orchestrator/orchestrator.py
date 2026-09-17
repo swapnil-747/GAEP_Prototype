@@ -664,6 +664,33 @@ async def terminate_workspace(
     }
 
 
+@app.post("/terminate-all")
+async def terminate_all_workspaces(
+    user: dict[str, str] = Depends(get_current_user),
+) -> dict[str, Any]:
+    all_workspaces = read_workspaces()
+    user_workspaces = [w for w in all_workspaces if w.get("owner_id") == user["id"]]
+    remaining = [w for w in all_workspaces if w.get("owner_id") != user["id"]]
+
+    for ws in user_workspaces:
+        name = ws.get("name")
+        if name:
+            stop_workspace_container(name)
+            ws_dir = WORKSPACES_DIR / name
+            if ws_dir.exists():
+                try:
+                    import shutil
+                    shutil.rmtree(ws_dir, ignore_errors=True)
+                except Exception:
+                    pass
+
+    write_workspaces(remaining)
+    return {
+        "status": "All Terminated",
+        "count": len(user_workspaces),
+    }
+
+
 if __name__ == "__main__":
     uvicorn.run(
         app,

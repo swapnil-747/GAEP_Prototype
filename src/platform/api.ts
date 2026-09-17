@@ -214,3 +214,22 @@ export async function terminateWorkspace(
     "Unable to terminate workspace",
   );
 }
+
+export async function terminateAllWorkspaces(): Promise<number> {
+  const response = await fetch(`${API_URL}/terminate-all`, {
+    method: "POST",
+    credentials: "include",
+  });
+
+  if (response.status === 401) {
+    throw new Error("Authentication required");
+  }
+
+  await ensureSuccess(
+    response,
+    "Unable to terminate all workspaces",
+  );
+
+  const data = (await response.json()) as { count: number };
+  return data.count;
+}

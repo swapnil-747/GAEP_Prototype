@@ -13,6 +13,7 @@ import { ROUTES } from "@/gaep/navigation";
 import {
   listWorkspaces,
   terminateWorkspace,
+  terminateAllWorkspaces,
   type Workspace,
 } from "@/platform/api";
 
@@ -83,6 +84,30 @@ export default function DashboardPage() {
       );
     } finally {
       setTerminating(null);
+    }
+  }
+
+  async function handleTerminateAll() {
+    const confirmed = window.confirm(
+      "Stop and purge ALL active and exited workspaces?",
+    );
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      await terminateAllWorkspaces();
+      await loadWorkspaces();
+    } catch (terminateError) {
+      setError(
+        terminateError instanceof Error
+          ? terminateError.message
+          : "Unable to terminate all workspaces.",
+      );
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -158,12 +183,25 @@ export default function DashboardPage() {
         </div>
 
         <div>
-          <h3
-            className="section-title"
-            style={{ fontSize: 20 }}
-          >
-            Active workspaces
-          </h3>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+            <h3
+              className="section-title"
+              style={{ fontSize: 20, margin: 0 }}
+            >
+              Active workspaces
+            </h3>
+
+            {activeWorkspaces.length > 0 && (
+              <button
+                type="button"
+                className="btn ghost"
+                style={{ padding: "4px 10px", fontSize: 11, borderColor: "rgba(238,136,136,0.5)", color: "#e88" }}
+                onClick={handleTerminateAll}
+              >
+                Purge All Workspaces ✕
+              </button>
+            )}
+          </div>
 
           {loading && (
             <p className="muted">
