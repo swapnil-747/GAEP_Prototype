@@ -663,6 +663,17 @@ server.listen(9323, '0.0.0.0', () => console.log('Playwright Studio running on 9
         credentials = sandbox_data.get("cloud_credentials", {})
         workspace_url = credentials.get("console_url", "https://console.cloud.google.com/")
         container_status = "vended"
+        if "gcp" in template:
+            try:
+                try:
+                    from gcp_vender import provision_gcp_dataset
+                except ImportError:
+                    from src.orchestrator.gcp_vender import provision_gcp_dataset
+                ds_id = provision_gcp_dataset(workspace_name)
+                if ds_id:
+                    sandbox_data["gcp_dataset_id"] = ds_id
+            except Exception as err:
+                print(f"GCP dynamic BigQuery dataset note: {err}")
     elif config.get("type") == "saas":
         workspace_url = "https://developer.salesforce.com/"
         container_status = "vended"
@@ -821,6 +832,17 @@ async def terminate_workspace(
 
     stop_workspace_container(workspace_name)
 
+    # Clean up GCP BigQuery dataset if applicable
+    if workspace.get("template") == "gcp-sandbox":
+        try:
+            try:
+                from gcp_vender import delete_gcp_dataset
+            except ImportError:
+                from src.orchestrator.gcp_vender import delete_gcp_dataset
+            delete_gcp_dataset(workspace_name)
+        except Exception as err:
+            print(f"GCP cleanup note: {err}")
+
     remaining_workspaces = [
         item
         for item in read_workspaces()
@@ -858,6 +880,15 @@ async def terminate_all_workspaces(
         name = ws.get("name")
         if name:
             stop_workspace_container(name)
+            if ws.get("template") == "gcp-sandbox":
+                try:
+                    try:
+                        from gcp_vender import delete_gcp_dataset
+                    except ImportError:
+                        from src.orchestrator.gcp_vender import delete_gcp_dataset
+                    delete_gcp_dataset(name)
+                except Exception:
+                    pass
             ws_dir = WORKSPACES_DIR / name
             if ws_dir.exists():
                 try:

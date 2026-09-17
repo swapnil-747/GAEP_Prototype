@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import random
 import time
 import uuid
@@ -65,21 +66,45 @@ def generate_azure_credentials(user_id: str, workspace_name: str) -> dict[str, A
 
 def generate_gcp_credentials(user_id: str, workspace_name: str) -> dict[str, Any]:
     import os
-    env_project = os.environ.get("GCP_PROJECT_ID")
-    project_id = env_project if env_project else f"boeing-gaep-sandbox-{uuid.uuid4().hex[:6]}"
-    sa_email = f"sa-engineer@{project_id}.iam.gserviceaccount.com"
-    
-    sa_key_json = {
-        "type": "service_account",
-        "project_id": project_id,
-        "private_key_id": uuid.uuid4().hex,
-        "client_email": sa_email,
-        "client_id": str(random.randint(100000000000000000, 999999999999999999)),
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token",
-    }
-    
-    console_url = f"https://console.cloud.google.com/welcome?project={project_id}" if env_project else "https://console.cloud.google.com/"
+    try:
+        from gcp_vender import get_master_key_path
+        key_file = get_master_key_path()
+    except Exception:
+        try:
+            from src.orchestrator.gcp_vender import get_master_key_path
+            key_file = get_master_key_path()
+        except Exception:
+            key_file = None
+
+    project_id = None
+    sa_email = None
+    sa_key_json = None
+
+    if key_file and key_file.exists():
+        try:
+            raw = json.loads(key_file.read_text(encoding="utf-8"))
+            if raw.get("project_id"):
+                project_id = raw["project_id"]
+                sa_email = raw.get("client_email", f"gaep-vender@{project_id}.iam.gserviceaccount.com")
+                sa_key_json = raw
+        except Exception:
+            pass
+
+    if not project_id:
+        env_project = os.environ.get("GCP_PROJECT_ID")
+        project_id = env_project if env_project else f"boeing-gaep-sandbox-{uuid.uuid4().hex[:6]}"
+        sa_email = f"sa-engineer@{project_id}.iam.gserviceaccount.com"
+        sa_key_json = {
+            "type": "service_account",
+            "project_id": project_id,
+            "private_key_id": uuid.uuid4().hex,
+            "client_email": sa_email,
+            "client_id": str(random.randint(100000000000000000, 999999999999999999)),
+            "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+            "token_uri": "https://oauth2.googleapis.com/token",
+        }
+
+    console_url = f"https://console.cloud.google.com/welcome?project={project_id}"
 
     return {
         "provider": "Google Cloud Platform (GCP)",

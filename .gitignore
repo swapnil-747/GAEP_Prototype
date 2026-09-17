@@ -25,3 +25,10 @@ src/orchestrator/data/users.json
 src/orchestrator/data/user.json
 *.tmp
 
+# Cloud Credentials & Service Account Keys
+*gaep-prototype*.json
+*service-account*.json
+*sa-key*.json
+gcp-key*.json
+!service-account.example.json
+
