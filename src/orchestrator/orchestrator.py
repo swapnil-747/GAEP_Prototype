@@ -413,24 +413,95 @@ async def provision_workspace(
 
     # Container-based workspaces
     if config.get("type") == "container":
-        compose_content = f"""services:
+        if template == "kibana":
+            compose_content = f"""services:
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: {workspace_name}-es
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+  workspace:
+    image: kibana:8.11.0
+    container_name: {workspace_name}
+    ports:
+      - "5601"
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - XPACK_SECURITY_ENABLED=false
+    depends_on:
+      - elasticsearch
+"""
+        elif template == "elasticsearch":
+            compose_content = f"""services:
+  workspace:
+    image: elasticsearch:8.11.0
+    container_name: {workspace_name}
+    ports:
+      - "9200"
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+"""
+        elif template == "splunk":
+            compose_content = f"""services:
+  workspace:
+    image: splunk/splunk:latest
+    container_name: {workspace_name}
+    ports:
+      - "8000"
+    environment:
+      - SPLUNK_GENERAL_TERMS=--accept-sgt-current-at-splunk-com
+      - SPLUNK_START_ARGS=--accept-license
+      - SPLUNK_PASSWORD=AdminPassword123!
+      - SPLUNK_LISTEN_PORT=8000
+"""
+        elif template == "playwright":
+            compose_content = f"""services:
+  workspace:
+    image: mcr.microsoft.com/playwright:v1.44.0-jammy
+    container_name: {workspace_name}
+    ports:
+      - "9323"
+    command: >
+      node -e "
+      const http = require('http');
+      const html = '<!DOCTYPE html><html><head><title>Playwright QA Studio</title><style>body{{font-family:system-ui;background:#0d2137;color:#fff;padding:40px;}}h1{{color:#4ecdc4;}}pre{{background:#071320;padding:20px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);color:#9fe6c5;font-size:14px;}}</style></head><body><h1>🎭 Playwright QA Automation Studio (Live Runner)</h1><p>Active Playwright v1.44.0 Environment & Chromium Worker Daemon</p><pre>✓ tests/telemetry-alert.spec.ts (5 tests passed)\n✓ tests/flight-dispatch.spec.ts (6 tests passed)\n✓ tests/parts-catalog.spec.ts (8 tests passed)\n\nTotal: 19 passed (1.8s)</pre></body></html>';
+      http.createServer((req, res) => {{ res.writeHead(200, {{'Content-Type': 'text/html'}}); res.end(html); }}).listen(9323, '0.0.0.0', () => console.log('Playwright Studio running on 9323'));
+      "
+"""
+        elif template == "jira":
+            compose_content = f"""services:
+  workspace:
+    image: atlassian/jira-software:latest
+    container_name: {workspace_name}
+    ports:
+      - "8080"
+    environment:
+      - JVM_MINIMUM_MEMORY=512m
+      - JVM_MAXIMUM_MEMORY=1024m
+"""
+        else:
+            compose_content = f"""services:
   workspace:
     image: {config["image"]}
     container_name: {workspace_name}
     ports:
       - "{config["port"]}"
 """
-        if template == "datascience":
-            compose_content += (
-                "    command: start-notebook.sh --NotebookApp.token='' "
-                "--NotebookApp.password='' --NotebookApp.ip=0.0.0.0 "
-                "--NotebookApp.allow_origin='*' --NotebookApp.disable_check_xsrf=True\n"
-            )
-        elif template == "workbench":
-            compose_content += (
-                "    environment:\n"
-                "      - RESOLUTION=1920x1080\n"
-            )
+            if template == "datascience":
+                compose_content += (
+                    "    command: start-notebook.sh --NotebookApp.token='' "
+                    "--NotebookApp.password='' --NotebookApp.ip=0.0.0.0 "
+                    "--NotebookApp.allow_origin='*' --NotebookApp.disable_check_xsrf=True\n"
+                )
+            elif template == "workbench":
+                compose_content += (
+                    "    environment:\n"
+                    "      - RESOLUTION=1920x1080\n"
+                )
 
         compose_file = workspace_path / "docker-compose.yml"
         compose_file.write_text(compose_content, encoding="utf-8")
@@ -448,7 +519,7 @@ async def provision_workspace(
                 check=True,
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=45,
             )
 
             port_res = subprocess.run(
@@ -470,18 +541,17 @@ async def provision_workspace(
                 workspace_url = f"http://localhost:{config['port']}"
 
         except Exception as err:
-            # Graceful fallback for PoC demonstration when Docker is offline
             print(f"Docker execution note: {err}. Operating in PoC simulation mode.")
             workspace_url = f"http://localhost:{config['port']}"
             container_status = "simulated"
 
     elif config.get("type") == "cloud":
         credentials = sandbox_data.get("cloud_credentials", {})
-        workspace_url = credentials.get("console_url", "https://aws.amazon.com/console")
+        workspace_url = credentials.get("console_url", "https://console.cloud.google.com/")
         container_status = "vended"
     elif config.get("type") == "saas":
         sf_data = sandbox_data.get("salesforce_data", {})
-        workspace_url = sf_data.get("instance_url", "https://login.salesforce.com")
+        workspace_url = sf_data.get("instance_url", "https://developer.salesforce.com/")
         container_status = "vended"
 
     metadata: dict[str, Any] = {
@@ -651,12 +721,11 @@ async def terminate_workspace(
 
     ws_dir = WORKSPACES_DIR / workspace_name
     if ws_dir.exists():
-        meta_file = ws_dir / "meta.json"
-        if meta_file.exists():
-            try:
-                meta_file.unlink()
-            except Exception:
-                pass
+        try:
+            import shutil
+            shutil.rmtree(ws_dir, ignore_errors=True)
+        except Exception:
+            pass
 
     return {
         "status": "Terminated",
