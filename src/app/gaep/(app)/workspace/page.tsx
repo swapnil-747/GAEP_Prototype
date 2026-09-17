@@ -726,10 +726,10 @@ test('verify real-time hydraulic sensor telemetry alert', async ({ page }) => {
               <div className="guardrail-card" style={{ background: "rgba(0, 82, 204, 0.1)", borderColor: "#0052cc", marginBottom: 16 }}>
                 <div>
                   <h4 style={{ margin: "0 0 4px 0", color: "#4c9aff" }}>
-                    ℹ️ Atlassian Jira Software Server (Port 8080)
+                    🐘 Atlassian Jira + PostgreSQL Database Stack (Port 8080)
                   </h4>
                   <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
-                    When launching Jira in a new tab for the first time, click <b>&quot;Set it up for me&quot;</b> on the welcome screen. Jira will automatically initialize its built-in database without requiring any external database credentials!
+                    Jira is paired with a dedicated <b>PostgreSQL 14 container</b>. If prompted on the setup screen: Type: <b>PostgreSQL</b> &middot; Hostname: <code>jira-db</code> &middot; Database: <code>jiradb</code> &middot; User/Pass: <code>jira</code> / <code>jira</code>.
                   </p>
                 </div>
               </div>

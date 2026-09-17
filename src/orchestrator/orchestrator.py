@@ -569,14 +569,33 @@ server.listen(9323, '0.0.0.0', () => console.log('Playwright Studio running on 9
 """
         elif template == "jira":
             compose_content = f"""services:
+  jira-db:
+    image: postgres:14-alpine
+    container_name: {workspace_name}-db
+    environment:
+      - POSTGRES_DB=jiradb
+      - POSTGRES_USER=jira
+      - POSTGRES_PASSWORD=jira
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jira -d jiradb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
   workspace:
     image: atlassian/jira-software:latest
     container_name: {workspace_name}
     ports:
       - "8080"
     environment:
-      - JVM_MINIMUM_MEMORY=1024m
-      - JVM_MAXIMUM_MEMORY=2048m
+      - "ATL_DB_TYPE=postgres72"
+      - "ATL_DB_DRIVER=org.postgresql.Driver"
+      - "ATL_JDBC_URL=jdbc:postgresql://jira-db:5432/jiradb"
+      - "ATL_JDBC_USER=jira"
+      - "ATL_JDBC_PASSWORD=jira"
+      - "JVM_MINIMUM_MEMORY=1024m"
+      - "JVM_MAXIMUM_MEMORY=2048m"
+    depends_on:
+      - jira-db
 """
         else:
             compose_content = f"""services:
