@@ -110,13 +110,26 @@ def read_workspaces() -> list[dict[str, Any]]:
 def write_workspaces(
     workspaces: list[dict[str, Any]],
 ) -> None:
+    seen_names: set[str] = set()
+    deduped: list[dict[str, Any]] = []
+
+    for ws in workspaces:
+        if isinstance(ws, dict):
+            name = ws.get("name")
+            if name and isinstance(name, str):
+                if name not in seen_names:
+                    seen_names.add(name)
+                    deduped.append(ws)
+            else:
+                deduped.append(ws)
+
     temporary_file = WORKSPACES_FILE.with_suffix(
         ".tmp",
     )
 
     temporary_file.write_text(
         json.dumps(
-            workspaces,
+            deduped,
             indent=2,
         ),
         encoding="utf-8",
@@ -570,7 +583,20 @@ async def provision_workspace(
     )
 
     workspaces = read_workspaces()
-    workspaces.append(metadata)
+    existing_index = next(
+        (
+            i
+            for i, ws in enumerate(workspaces)
+            if ws.get("name") == workspace_name
+        ),
+        None,
+    )
+
+    if existing_index is not None:
+        workspaces[existing_index] = metadata
+    else:
+        workspaces.append(metadata)
+
     write_workspaces(workspaces)
 
     return {
