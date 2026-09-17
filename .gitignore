@@ -6,3 +6,6 @@ package-lock.json
 __pycache__/
 *.pyc
 *.tsbuildinfo
+src\orchestrator\workspaces
+src\orchestrator\data\workspaces.json
+src\orchestrator\data\users.json
