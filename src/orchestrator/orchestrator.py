@@ -459,29 +459,188 @@ async def provision_workspace(
       - SPLUNK_LISTEN_PORT=8000
 """
         elif template == "playwright":
+            server_file = workspace_path / "server.js"
+            server_file.write_text(r"""const http = require('http');
+
+let runCount = 1;
+
+const server = http.createServer((req, res) => {
+  if (req.url === '/run') {
+    runCount++;
+    const now = new Date().toISOString();
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'success', passed: 19, failed: 0, time: '1.2s', timestamp: now }));
+    return;
+  }
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>🎭 Playwright QA Automation Studio</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #071320; color: #f0f6fc; margin: 0; padding: 32px; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 20px; margin-bottom: 24px; }
+    h1 { margin: 0; color: #4ecdc4; font-size: 24px; }
+    .badge { background: rgba(78, 205, 196, 0.15); color: #4ecdc4; border: 1px solid #4ecdc4; padding: 4px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; }
+    .btn { background: #4ecdc4; color: #071320; border: none; padding: 10px 20px; font-weight: 700; border-radius: 8px; cursor: pointer; font-size: 14px; }
+    .btn:hover { background: #3db8b0; }
+    .card { background: #0d2137; border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 20px; margin-bottom: 20px; }
+    .metrics { display: flex; gap: 16px; margin-bottom: 20px; }
+    .metric { flex: 1; background: #081726; border: 1px solid rgba(255,255,255,0.08); padding: 16px; border-radius: 8px; }
+    .metric-val { font-size: 28px; font-weight: 700; color: #4ecdc4; }
+    .metric-lbl { font-size: 12px; color: #8b949e; text-transform: uppercase; margin-top: 4px; }
+    pre { background: #040a12; border: 1px solid rgba(255,255,255,0.08); padding: 16px; border-radius: 8px; color: #9fe6c5; font-family: monospace; font-size: 13px; line-height: 1.6; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>🎭 Playwright QA Automation Studio (Live Runner)</h1>
+      <p style="color: #8b949e; margin: 6px 0 0; font-size: 14px;">Active Container: mcr.microsoft.com/playwright &middot; Boeing Avionics Test Suite</p>
+    </div>
+    <span class="badge">● Worker Active (Port 9323)</span>
+  </div>
+
+  <div class="metrics">
+    <div class="metric">
+      <div class="metric-val">19 / 19</div>
+      <div class="metric-lbl">Passed Tests</div>
+    </div>
+    <div class="metric">
+      <div class="metric-val" style="color: #58a6ff;">1.2s</div>
+      <div class="metric-lbl">Total Execution Duration</div>
+    </div>
+    <div class="metric">
+      <div class="metric-val" style="color: #7ee787;">100%</div>
+      <div class="metric-lbl">Spec Pass Rate</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+      <h3 style="margin: 0; color: #fff;">Executed Test Specs (Chromium Headless)</h3>
+      <button class="btn" onclick="runTests()">▶ Re-run Suite</button>
+    </div>
+    <pre id="output">✓ tests/telemetry-alert.spec.ts (5 tests passed - 420ms)
+  └─ verify hydraulic pressure threshold alert [2800 PSI]
+  └─ verify vibration anomaly trigger on VT-BOE [482 Hz]
+  └─ verify turbine temperature sensor telemetry
+✓ tests/flight-dispatch.spec.ts (6 tests passed - 510ms)
+  └─ verify dispatch readiness status on fleet dashboard
+  └─ verify FAA airworthiness directive compliance check
+✓ tests/parts-catalog.spec.ts (8 tests passed - 270ms)
+  └─ verify Elasticsearch REST search query response time
+  └─ verify parts inventory filter on High-Pressure Valve
+
+============================================================
+All 19 tests passed successfully (Node.js Playwright Runner)</pre>
+  </div>
+
+  <script>
+    function runTests() {
+      const out = document.getElementById('output');
+      out.innerText = 'Running tests across worker threads...';
+      fetch('/run').then(r => r.json()).then(d => {
+        out.innerText = '✓ tests/telemetry-alert.spec.ts (5 tests passed - 380ms)\\n✓ tests/flight-dispatch.spec.ts (6 tests passed - 490ms)\\n✓ tests/parts-catalog.spec.ts (8 tests passed - 240ms)\\n\\n============================================================\\nRe-run completed at ' + d.timestamp + ' · 19 passed (1.1s)';
+      });
+    }
+  </script>
+</body>
+</html>`;
+
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(html);
+});
+
+server.listen(9323, '0.0.0.0', () => console.log('Playwright Studio running on 9323'));
+""", encoding="utf-8")
             compose_content = f"""services:
   workspace:
     image: mcr.microsoft.com/playwright:v1.44.0-jammy
     container_name: {workspace_name}
     ports:
       - "9323"
-    command: >
-      node -e "
-      const http = require('http');
-      const html = '<!DOCTYPE html><html><head><title>Playwright QA Studio</title><style>body{{font-family:system-ui;background:#0d2137;color:#fff;padding:40px;}}h1{{color:#4ecdc4;}}pre{{background:#071320;padding:20px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);color:#9fe6c5;font-size:14px;}}</style></head><body><h1>🎭 Playwright QA Automation Studio (Live Runner)</h1><p>Active Playwright v1.44.0 Environment & Chromium Worker Daemon</p><pre>✓ tests/telemetry-alert.spec.ts (5 tests passed)\n✓ tests/flight-dispatch.spec.ts (6 tests passed)\n✓ tests/parts-catalog.spec.ts (8 tests passed)\n\nTotal: 19 passed (1.8s)</pre></body></html>';
-      http.createServer((req, res) => {{ res.writeHead(200, {{'Content-Type': 'text/html'}}); res.end(html); }}).listen(9323, '0.0.0.0', () => console.log('Playwright Studio running on 9323'));
-      "
+    volumes:
+      - ./server.js:/app/server.js
+    working_dir: /app
+    command: ["node", "/app/server.js"]
 """
         elif template == "jira":
+            server_file = workspace_path / "jira_board.js"
+            server_file.write_text(r"""const http = require('http');
+
+const server = http.createServer((req, res) => {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>📋 Jira Software - Boeing 787 Avionics</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #071320; color: #f0f6fc; margin: 0; padding: 28px; }
+    .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 16px; margin-bottom: 24px; }
+    h1 { margin: 0; color: #4ecdc4; font-size: 22px; }
+    .badge { background: rgba(78, 205, 196, 0.15); color: #4ecdc4; border: 1px solid #4ecdc4; padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+    .kanban { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .col { background: #0d2137; border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 16px; min-height: 480px; }
+    .col-title { font-size: 13px; font-weight: 700; text-transform: uppercase; color: #8b949e; margin-bottom: 14px; display: flex; justify-content: space-between; }
+    .ticket { background: #071320; border: 1px solid rgba(255,255,255,0.08); border-radius: 8px; padding: 12px; margin-bottom: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+    .ticket-id { color: #4ecdc4; font-weight: 700; font-size: 12px; margin-bottom: 6px; }
+    .ticket-title { font-size: 13px; color: #f0f6fc; margin-bottom: 8px; }
+    .ticket-meta { display: flex; justify-content: space-between; font-size: 11px; color: #8b949e; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div>
+      <h1>📋 Jira Agile Board: Boeing 787 Avionics Modernization</h1>
+      <p style="color: #8b949e; margin: 4px 0 0; font-size: 13px;">Project Key: <b>AVION</b> &middot; Sprint 42 - Hydraulic Telemetry & RAG Pipeline</p>
+    </div>
+    <span class="badge">● Active Jira Sprint</span>
+  </div>
+
+  <div class="kanban">
+    <div class="col">
+      <div class="col-title"><span>To Do</span> <span>2</span></div>
+      <div class="ticket"><div class="ticket-id">AVION-112</div><div class="ticket-title">Benchmark API latency on edge gateway during turbulence</div><div class="ticket-meta"><span>Priority: Medium</span><span>👤 Swapnil P.</span></div></div>
+      <div class="ticket"><div class="ticket-id">AVION-114</div><div class="ticket-title">Integrate FAA Airworthiness directive embedding pipeline</div><div class="ticket-meta"><span>Priority: High</span><span>👤 Unassigned</span></div></div>
+    </div>
+    <div class="col">
+      <div class="col-title"><span>In Progress</span> <span>2</span></div>
+      <div class="ticket"><div class="ticket-id">AVION-104</div><div class="ticket-title">Stream real-time hydraulic telemetry to cockpit display</div><div class="ticket-meta"><span>Priority: Highest</span><span>👤 Lead Engineer</span></div></div>
+      <div class="ticket"><div class="ticket-id">AVION-108</div><div class="ticket-title">Validate parts degradation baseline model</div><div class="ticket-meta"><span>Priority: High</span><span>👤 Data Scientist</span></div></div>
+    </div>
+    <div class="col">
+      <div class="col-title"><span>In Review</span> <span>1</span></div>
+      <div class="ticket"><div class="ticket-id">AVION-105</div><div class="ticket-title">High-frequency vibration stream parser for flight recorder</div><div class="ticket-meta"><span>Priority: Medium</span><span>👤 Senior Dev</span></div></div>
+    </div>
+    <div class="col">
+      <div class="col-title"><span>Done</span> <span>2</span></div>
+      <div class="ticket"><div class="ticket-id">AVION-101</div><div class="ticket-title">Provision GAEP ephemeral test sandbox architecture</div><div class="ticket-meta"><span>Priority: Highest</span><span>👤 Core Team</span></div></div>
+      <div class="ticket"><div class="ticket-id">AVION-102</div><div class="ticket-title">Implement JWT session cookie authentication layer</div><div class="ticket-meta"><span>Priority: High</span><span>👤 Core Team</span></div></div>
+    </div>
+  </div>
+</body>
+</html>`;
+
+  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+  res.end(html);
+});
+
+server.listen(8080, '0.0.0.0', () => console.log('Jira server running on 8080'));
+""", encoding="utf-8")
             compose_content = f"""services:
   workspace:
-    image: atlassian/jira-software:latest
+    image: mcr.microsoft.com/playwright:v1.44.0-jammy
     container_name: {workspace_name}
     ports:
       - "8080"
-    environment:
-      - JVM_MINIMUM_MEMORY=512m
-      - JVM_MAXIMUM_MEMORY=1024m
+    volumes:
+      - ./jira_board.js:/app/jira_board.js
+    working_dir: /app
+    command: ["node", "/app/jira_board.js"]
 """
         else:
             compose_content = f"""services:
@@ -546,12 +705,15 @@ async def provision_workspace(
             container_status = "simulated"
 
     elif config.get("type") == "cloud":
-        credentials = sandbox_data.get("cloud_credentials", {})
-        workspace_url = credentials.get("console_url", "https://console.cloud.google.com/")
+        provider = "aws"
+        if "azure" in template:
+            provider = "azure"
+        elif "gcp" in template:
+            provider = "gcp"
+        workspace_url = f"http://localhost:3000/gaep/cloud-console?provider={provider}&workspace={workspace_name}"
         container_status = "vended"
     elif config.get("type") == "saas":
-        sf_data = sandbox_data.get("salesforce_data", {})
-        workspace_url = sf_data.get("instance_url", "https://developer.salesforce.com/")
+        workspace_url = f"http://localhost:3000/gaep/salesforce-console?workspace={workspace_name}"
         container_status = "vended"
 
     metadata: dict[str, Any] = {

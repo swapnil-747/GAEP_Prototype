@@ -497,6 +497,27 @@ function WorkspaceInner() {
           {/* 2. Observability Hub (Kibana & Splunk) */}
           {(template.id === "splunk" || template.id === "kibana") && (
             <div className="nb" style={{ padding: 24 }}>
+              {template.id === "splunk" && (
+                <div className="guardrail-card" style={{ background: "rgba(255, 170, 0, 0.08)", borderColor: "var(--orange)", marginBottom: 16 }}>
+                  <div>
+                    <h4 style={{ margin: "0 0 4px 0", color: "var(--orange)" }}>
+                      🔐 Splunk Enterprise Login Credentials
+                    </h4>
+                    <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
+                      Username: <b style={{ color: "#fff" }}>admin</b> &nbsp;|&nbsp; Password: <b style={{ color: "#fff" }}>AdminPassword123!</b>
+                    </p>
+                  </div>
+                  <button
+                    className="btn ghost"
+                    type="button"
+                    style={{ padding: "6px 12px", fontSize: 12 }}
+                    onClick={() => copyToClipboard("AdminPassword123!", "splunk_pass")}
+                  >
+                    {copiedKey === "splunk_pass" ? "Copied ✓" : "Copy Password"}
+                  </button>
+                </div>
+              )}
+
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <div>
                   <h4 style={{ margin: 0, color: "var(--teal)" }}>
@@ -589,6 +610,17 @@ function WorkspaceInner() {
           {/* 3. Elasticsearch Search Engine Console */}
           {template.id === "elasticsearch" && (
             <div className="nb" style={{ padding: 24 }}>
+              <div className="guardrail-card" style={{ background: "rgba(78, 205, 196, 0.08)", borderColor: "var(--teal)", marginBottom: 16 }}>
+                <div>
+                  <h4 style={{ margin: "0 0 4px 0", color: "var(--teal)" }}>
+                    ℹ️ API-First Search Engine Backend (Port 9200)
+                  </h4>
+                  <p style={{ margin: 0, fontSize: 13, color: "var(--muted)" }}>
+                    Elasticsearch is a REST API engine. Opening port 9200 directly in a browser outputs the cluster JSON (<code>&quot;You Know, for Search&quot;</code>). For visual telemetry dashboards, open <b>Kibana (port 5601)</b> or execute REST queries below.
+                  </p>
+                </div>
+              </div>
+
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                 <div>
                   <h4 style={{ margin: 0, color: "var(--teal)" }}>
